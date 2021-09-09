@@ -1,1 +1,33 @@
+The python source files, short desrciptions on use follow
+  -parser.py 1 2
+              Parses the input file {1} in order to retrive the prefix(bit mask represented as a string of 0's and 1's), 
+              prefix length, and next hop and writes entries to {2} in csv format. Note that this is specific to the input 
+              format of a random example found online so this source code is insignificant and should be swapped out when needed
+  -sorter.py: 1 2
+              Given a csv file {1} of prefix, length, and next hop, will sort the entries by prefix length (longest to shortest)
+              with tiebreakers being settled by value (0000->1111). Will write csv with same column names to {2}
+  -reversesorter.py 1 2 
+              Identical to sorter except entries are sorted from shortest to longest
+  -expander.py 1 2 3...
+              Given a csv file {1} of prefix, length, and next hop, will expand the entries so that lengths align with the strides
+              given by optional {3 ...}. If not strides are given, then a stride list of 8 8 8 8 will be assumed. Note that 
+              the optional strides given must add up to 32. Output will be written to {2} in csv with columns expanded prefix, original
+              prefix, length, and next hop
+  -fixedmbtrie.py 1 2 3...
+              Given csv {1}, will generate a multi-bit trie with a fixed stride given by {3...} (if no strides are provided then
+              a stride of 8 8 8 8 is assumed). Will return the number of bits used to create the trie, broken up between
+              keys, bmps, and pointers
+  -FixedTTree.py 1 2 3...
+              Given csv {1}, will generate a TCAM tree with a fixed stride given by {3...} (if no strides are provided then
+              a stride of 8 8 8 8 is assumed). Will return the number of bits used to create the tree, broken up between
+              keys, bmps, and pointers
+Example of how to use, assuming that input has been parsed already by parser.py
 
+For a multi-bit trie
+>python sorter.py Input A
+>python expander.py A B 4 4 8 8 8
+>python fixedmbtrie.py B C 4 4 8 8 8
+
+For a TCAM tree
+>python reversesorter.py Input A
+>python FixedTTree.py A B 4 4 8 8 8
