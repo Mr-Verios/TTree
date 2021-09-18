@@ -10,6 +10,7 @@
 #include <math.h>
 using namespace std;
 
+//This booloean function checks whether a string is a non-negative int
 bool is_integer(string s) {
     int size = s.length();
     for (int i = 0; i < size; i++) {
@@ -20,6 +21,7 @@ bool is_integer(string s) {
     return true;
 }
 
+//This boolean function checks whether prefix is a prefix of value
 bool is_prefix(string prefix, string value) {
     if (value.find(prefix) == 0) {
         return true;
@@ -29,10 +31,14 @@ bool is_prefix(string prefix, string value) {
     }
 }
 
+//This struct is used to check the coverage of TCAM entries, to later see if a
+//default entry is required. It is merely a node that holds a true or false value and
+//pointers to 2 children, a zero child and a one child
 struct bit_node {
     bool covered;
     bit_node* zero_child;
     bit_node* one_child;
+    //Build the entire tree up front, based on the width of the TCAM node, passed in as count
     bit_node(short count) {
         covered = false;
         zero_child = NULL;
@@ -42,6 +48,9 @@ struct bit_node {
             one_child = new bit_node(count - 1);
         }
     }
+    //This function updates the cover by going down the tree until the string terminates,
+    //but it will stop earlier if it encounters a node already covered(i.e no need to
+    //cover 001* if 0* has already been encountered)
     void update_cover(string bits) {
         if (covered)
             return;
@@ -60,6 +69,8 @@ struct bit_node {
             cout << "Invalid prefix passed to bit_nodes" << endl;
         }
     }
+    //Checks the cover to see if a default entry is required, it's a recursive function that
+    //that returns false if it is possible to reach a leaf node that says false.
     bool check_cover() {
         bool child_status = zero_child && one_child;
         if (covered) {
@@ -74,6 +85,9 @@ struct bit_node {
     }
 };
 
+//A struct that represents a node in the TCAM tree. It contains info on the width, level, a bit node
+//tree for coverage, and a map from prefixes to pointers. Values are not included because they are not
+//needed to determine size
 struct TCAM_Node {
     short my_width;
     short my_level;
@@ -87,6 +101,16 @@ struct TCAM_Node {
         cover_tree = new bit_node(width);
     }
 
+    /*
+        This inserts prefixes into the simulated TCAM tree. The general insertion process is summarized as follows
+        Check if the prefix ends in this node (i.e check whether there are not enough bits to go beyound this node)
+        If yes, do the following:
+          Insert new prefix into current node and check for duplicates(the provided input shouldn't have any)
+        If no, do the following:
+          Check to see if a prefix exists, if not make one
+          Check to see if next node exists, if not make one
+          Repeat the process at the next node, with the shortened prefix
+    */
     void insert_prefix(string remaining_prefix, string original_prefix, short* strides) {
         if (remaining_prefix.size() <= my_width) {
             cover_tree->update_cover(remaining_prefix);
@@ -115,6 +139,7 @@ struct TCAM_Node {
         }
     }
 
+    //Currently unused, this function returns the lpm for a bit string
     string lpm_key(string key) {
         int range = my_width + 1;
         for (int i = 0; i < range; i++) {
@@ -126,6 +151,8 @@ struct TCAM_Node {
         return "";
     }
 
+    //This function recursively goes thru the TCAM tree, checking whether the bit node tree covers all
+    //addresses and if not, it adds the default entry. Also records how many bits have been used on default entries
     long long* default_solution() {
         long long* my_share = new long long[4];
         my_share[0] = 0;
@@ -151,32 +178,7 @@ struct TCAM_Node {
         return my_share;
     }
 
-    void add_entry(string key) {
-        my_contents[key] = NULL;
-    }
-
-    bool is_present(string key) {
-        if (my_contents.find(key) != my_contents.end()) {
-            return true;
-        }
-        else {
-            return false;
-        }
-    }
-
-    bool has_child(string key) {
-        if (my_contents[key] == NULL) {
-            return false;
-        }
-        else {
-            return true;
-        }
-    }
-
-    void add_node(string key, short size) {
-        my_contents[key] = new TCAM_Node(size, my_level + 1);
-    }
-
+    //Recursively visits every node on the tree and sums up the number of bits used and entries present
     long long* get_size() {
         long long my_size = my_contents.size();
         long long* my_share = new long long[4];
@@ -196,6 +198,9 @@ struct TCAM_Node {
         return my_share;
     }
 
+    //Recursively visits every node on the tree and sums up how big a normal multi bit trie would have
+    //been. This is simple because if a node exists in the TCAM tree then it would have existed in the
+    //trie except the node would be completely expanded
     long long* get_trie_size() {
         long long my_size = pow(2, my_width);
         long long* my_share = new long long[4];
@@ -215,11 +220,43 @@ struct TCAM_Node {
         return my_share;
     }
 
+    
+    //Boolean function that checks whether a tcam entry exists for a given prefix
+    bool is_present(string key) {
+        if (my_contents.find(key) != my_contents.end()) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    
+    //BELOW ARE SIMPLE WRAPPER FUNCTIONS
+
+    bool has_child(string key) {
+        if (my_contents[key] == NULL) {
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
+
+    void add_node(string key, short size) {
+        my_contents[key] = new TCAM_Node(size, my_level + 1);
+    }
+
+    void add_entry(string key) {
+        my_contents[key] = NULL;
+    }
+
     TCAM_Node* get_node(string key) {
         return my_contents[key];
     }
 };
 
+//This struct pretty serves as a wrapper for the node structure, most likely did not need to exist
 struct TCAM_Tree {
     short* my_strides = NULL;
     TCAM_Node* root = NULL;
@@ -323,13 +360,3 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
